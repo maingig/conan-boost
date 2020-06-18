@@ -453,7 +453,8 @@ class BoostConan(ConanFile):
                 "watchOS": "iphone",
                 "tvOS": "appletv",
                 "FreeBSD": "freebsd",
-                "SunOS": "solaris"}.get(str(self.settings.os))
+                "SunOS": "solaris",
+                "QNX": "qnx"}.get(str(self.settings.os))
 
     @property
     def _b2_address_model(self):
@@ -473,7 +474,8 @@ class BoostConan(ConanFile):
                 "watchOS": "mach-o",
                 "tvOS": "mach-o",
                 "FreeBSD": "elf",
-                "SunOS": "elf"}.get(str(self.settings.os))
+                "SunOS": "elf",
+                "QNX": "elf"}.get(str(self.settings.os))
 
     @property
     def _b2_architecture(self):
@@ -587,6 +589,29 @@ class BoostConan(ConanFile):
 
         # CXX FLAGS
         cxx_flags = []
+
+        # QNX
+        target_host = self.settings.get_safe('target_host')
+        if (target_host == 'ntoaarch64'):
+            target_compiler = 'gcc'
+            target_os = self.settings.get_safe('os')
+            if (target_os == 'QNX'):
+                target_os = 'nto'
+                target_arch = self.settings.get_safe('arch')
+                if (target_arch == 'armv7'):
+                    # by Conan's definition of ARMv7
+                    target_arch = 'armv7le'
+                elif (target_arch == 'armv8'):
+                    # by Conan's definition of ARMv8
+                    target_arch = 'aarch64le'
+                target_libcxx = self.settings.get_safe('compiler.libcxx')
+                if (target_libcxx is not None):
+                    target_libcxx = '_' + target_libcxx
+                else:
+                    target_libcxx = ''
+                compiler_target = '%s_%s%s%s' % (target_compiler, target_os, target_arch, target_libcxx)
+                cxx_flags.append("-V%s" % compiler_target)
+
         # fPIC DEFINITION
         if self.settings.os != "Windows":
             if self.options.fPIC:
@@ -758,9 +783,9 @@ class BoostConan(ConanFile):
                 contents += " -arch %s" % tools.to_apple_arch(self.settings.arch)
 
         contents += " : \n"
-        if self._ar:
+        if tools.which(self._ar):
             contents += '<archiver>"%s" ' % tools.which(self._ar).replace("\\", "/")
-        if self._ranlib:
+        if tools.which(self._ranlib):
             contents += '<ranlib>"%s" ' % tools.which(self._ranlib).replace("\\", "/")
         if "CXXFLAGS" in os.environ:
             contents += '<cxxflags>"%s" ' % os.environ["CXXFLAGS"]
@@ -893,6 +918,9 @@ class BoostConan(ConanFile):
         if self.settings.os != "Android":
             if self._gnu_cxx11_abi:
                 self.cpp_info.defines.append("_GLIBCXX_USE_CXX11_ABI=%s" % self._gnu_cxx11_abi)
+
+        if self.settings.os == "QNX":
+            self.cpp_info.defines.append(["__EXT_BSD", "__QNXNTO__", "_QNX_SOURCE"])
 
         if not self.options.header_only:
             if self.options.error_code_header_only:
