@@ -920,7 +920,7 @@ class BoostConan(ConanFile):
                 self.cpp_info.defines.append("_GLIBCXX_USE_CXX11_ABI=%s" % self._gnu_cxx11_abi)
 
         if self.settings.os == "QNX":
-            self.cpp_info.defines.append(["__EXT_BSD", "__QNXNTO__", "_QNX_SOURCE"])
+            self.cpp_info.defines.extend(["__EXT_BSD", "__QNXNTO__", "_QNX_SOURCE"])
 
         if not self.options.header_only:
             if self.options.error_code_header_only:
