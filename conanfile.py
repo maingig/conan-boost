@@ -141,7 +141,7 @@ class BoostConan(ConanFile):
                     raise ConanInvalidConfiguration("Boost '%s' library requires multi threading" % lib)
 
     def build_requirements(self):
-        self.build_requires("b2/4.2.0")
+        self.build_requires("b2/4.3.0")
 
     def requirements(self):
         if self._zip_bzip2_requires_needed:
@@ -454,7 +454,7 @@ class BoostConan(ConanFile):
                 "tvOS": "appletv",
                 "FreeBSD": "freebsd",
                 "SunOS": "solaris",
-                "QNX": "qnx"}.get(str(self.settings.os))
+                "QNX": "qnxnto"}.get(str(self.settings.os))
 
     @property
     def _b2_address_model(self):
@@ -540,7 +540,8 @@ class BoostConan(ConanFile):
 
         if self.options.layout is not "b2-default":
             flags.append("--layout=%s" % self.options.layout)
-        flags.append("--user-config=%s" % os.path.join(self._boost_build_dir, 'user-config.jam'))
+        if (self.settings.os != 'QNX'):
+            flags.append("--user-config=%s" % os.path.join(self._boost_build_dir, 'user-config.jam'))
         flags.append("-sNO_ZLIB=%s" % ("0" if self.options.zlib else "1"))
         flags.append("-sNO_BZIP2=%s" % ("0" if self.options.bzip2 else "1"))
         flags.append("-sNO_LZMA=%s" % ("0" if self.options.lzma else "1"))
@@ -591,29 +592,20 @@ class BoostConan(ConanFile):
         cxx_flags = []
 
         # QNX
-        target_host = self.settings.get_safe('target_host')
-        if (target_host == 'ntoaarch64'):
-            target_compiler = 'gcc'
-            target_os = self.settings.get_safe('os')
-            if (target_os == 'QNX'):
-                target_os = 'nto'
-                target_arch = self.settings.get_safe('arch')
-                if (target_arch == 'armv7'):
-                    # by Conan's definition of ARMv7
-                    target_arch = 'armv7le'
-                elif (target_arch == 'armv8'):
-                    # by Conan's definition of ARMv8
-                    target_arch = 'aarch64le'
-                target_libcxx = self.settings.get_safe('compiler.libcxx')
-                if (target_libcxx is not None):
-                    target_libcxx = '_' + target_libcxx
-                else:
-                    target_libcxx = ''
-                compiler_target = '%s_%s%s%s' % (target_compiler, target_os, target_arch, target_libcxx)
-                cxx_flags.append("-V%s" % compiler_target)
+        if (self.settings.os == 'QNX'):
+            flags.append("define=__EXT_BSD")
+            flags.append("define=__QNXNTO__")
+            flags.append("define=_QNX_SOURCE")
+            flags.append("threadapi=pthread")
+            flags.append("-l240")
+            cxx_flags.append("-Vgcc_ntoaarch64le")
+            cxx_flags.append("-std=c++14")
+            cxx_flags.append("-lang-c++")
+            cxx_flags.append("-Y_gpp")
+            cxx_flags.append("-D_LITTLE_ENDIAN")
 
         # fPIC DEFINITION
-        if self.settings.os != "Windows":
+        if self.settings.os != "Windows" and self.settings.os != "QNX" :
             if self.options.fPIC:
                 cxx_flags.append("-fPIC")
         if self.settings.build_type == "RelWithDebInfo":
@@ -827,6 +819,8 @@ class BoostConan(ConanFile):
             return "darwin"
         elif compiler == "apple-clang":
             return "clang-darwin"
+        elif self.settings.os == "QNX":
+            return "qcc"
         elif self.settings.os == "Android" and compiler == "clang":
             return "clang-linux"
         elif str(self.settings.compiler) in ["clang", "gcc"]:
