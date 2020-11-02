@@ -454,7 +454,7 @@ class BoostConan(ConanFile):
                 "tvOS": "appletv",
                 "FreeBSD": "freebsd",
                 "SunOS": "solaris",
-                "QNX": "qnxnto"}.get(str(self.settings.os))
+                "QNX": "qnx"}.get(str(self.settings.os))
 
     @property
     def _b2_address_model(self):
@@ -540,8 +540,7 @@ class BoostConan(ConanFile):
 
         if self.options.layout is not "b2-default":
             flags.append("--layout=%s" % self.options.layout)
-        if (self.settings.os != 'QNX'):
-            flags.append("--user-config=%s" % os.path.join(self._boost_build_dir, 'user-config.jam'))
+        flags.append("--user-config=%s" % os.path.join(self._boost_build_dir, 'user-config.jam'))
         flags.append("-sNO_ZLIB=%s" % ("0" if self.options.zlib else "1"))
         flags.append("-sNO_BZIP2=%s" % ("0" if self.options.bzip2 else "1"))
         flags.append("-sNO_LZMA=%s" % ("0" if self.options.lzma else "1"))
@@ -592,20 +591,22 @@ class BoostConan(ConanFile):
         cxx_flags = []
 
         # QNX
+        # -Vgcc_ntoaarch64le and "-Y_gpp are qcc build flags
+        # -std=c++14 causes an ASIO build error - needs investigation
         if (self.settings.os == 'QNX'):
             flags.append("define=__EXT_BSD")
             flags.append("define=__QNXNTO__")
             flags.append("define=_QNX_SOURCE")
             flags.append("threadapi=pthread")
             flags.append("-l240")
-            cxx_flags.append("-Vgcc_ntoaarch64le")
-            cxx_flags.append("-std=c++14")
+            #cxx_flags.append("-Vgcc_ntoaarch64le")
+            #cxx_flags.append("-std=c++14")
             cxx_flags.append("-lang-c++")
-            cxx_flags.append("-Y_gpp")
+            #cxx_flags.append("-Y_gpp")
             cxx_flags.append("-D_LITTLE_ENDIAN")
 
         # fPIC DEFINITION
-        if self.settings.os != "Windows" and self.settings.os != "QNX" :
+        if self.settings.os != "Windows":
             if self.options.fPIC:
                 cxx_flags.append("-fPIC")
         if self.settings.build_type == "RelWithDebInfo":
@@ -819,8 +820,6 @@ class BoostConan(ConanFile):
             return "darwin"
         elif compiler == "apple-clang":
             return "clang-darwin"
-        elif self.settings.os == "QNX":
-            return "qcc"
         elif self.settings.os == "Android" and compiler == "clang":
             return "clang-linux"
         elif str(self.settings.compiler) in ["clang", "gcc"]:
